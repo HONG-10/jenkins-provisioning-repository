@@ -1,0 +1,249 @@
+########################################################################################
+# [CI/CD Practice]  Jenkins Image Dockerfile
+# - Jenkins version : 2.387.1-lts ( Release Date : 2023-03-08 )
+# - Base Image 의 Dockerfile 경로 : https://hub.docker.com/layers/jenkins/jenkins/2.387.1-lts/images/sha256-005fcb5c3017ef120d0d9d8d8925e9248ff6e2cf2b5e18b527b01459c7b2b3f4?context=explore
+########################################################################################
+
+FROM jenkins/jenkins:2.387.1-lts
+
+##### Jenkins configuration, Plugin 설치 정보
+
+# Jenkins 실행시 JAVA_OPTS
+ENV JAVA_OPTS='-Duser.timezone=Asia/Seoul -Dfile.encoding=UTF-8 -Djenkins.install.runSetupWizard=false -Dhudson.model.DownloadService.noSignatureCheck=true -Dhudson.security.csrf.GlobalCrumbIssuerConfiguration.DISABLE_CSRF_PROTECTION=true -Dpermissive-script-security.enabled=true'
+
+# 의존성 경로 : 해당 경로 하위에 .m2 (Maven) / .gradle (Gradle) 위치
+ENV JENKINS_DEPENDENCIES_PATH=/jenkins_dependencies
+
+# https://updates.jenkins.io:443, https://mirrors.tuna.tsinghua.edu.cn 이 너무 느려 일본에 위치한 Mirror 로 별도 지정
+ENV JENKINS_UC_DOWNLOAD=https://ftp.yz.yamagata-u.ac.jp/pub/misc/jenkins/
+
+# Jenkins Configuration-As-Code (CASC) Plugin 기반 Jenkins 설정 YAML 경로
+# Reference: https://plugins.jenkins.io/configuration-as-code/#plugin-content-getting-started
+ENV CASC_JENKINS_CONFIG=/var/casc_jenkins_config/jenkins-casc-config.yaml
+
+# Jenkins Plug-in 설정 정보 : jenkins-plugin-cli 기반으로 설치
+ENV JENKINS_PLUGINS_YAML_PATH=/usr/share/jenkins/ref/jenkins-plugins.yaml
+
+# Jenkins Job DSL Plugin 기반 groovy script 경로
+ENV JENKINS_JOB_DSL_GROOVY_FILE_PATH=/var/jenkins_job_dsl
+
+# Jenkins 에서 사용할 SSH Credentials 정보
+ENV JENKINS_SSH_CREDENTIALS_PATH=/var/jenkins_ssh_credentials
+
+# Docker COPY
+COPY --chown=jenkins:jenkins ./jenkins-config/jenkins-casc-config.yaml "${CASC_JENKINS_CONFIG}"
+COPY --chown=jenkins:jenkins ./jenkins-config/jenkins-plugins.yaml "${JENKINS_PLUGINS_YAML_PATH}"
+COPY --chown=jenkins:jenkins ./jenkins-job-dsl/. "${JENKINS_JOB_DSL_GROOVY_FILE_PATH}"/
+COPY --chown=jenkins:jenkins ./jenkins-ssh-credentials/*.pem "${JENKINS_SSH_CREDENTIALS_PATH}"/
+
+##### 해당 Container 에서 'cat /etc/os-release' 출력 정보
+# PRETTY_NAME="Debian GNU/Linux 11 (bullseye)"
+# NAME="Debian GNU/Linux"
+# VERSION_ID="11"
+# VERSION="11 (bullseye)"
+# VERSION_CODENAME=bullseye
+# ID=debian
+# HOME_URL="https://www.debian.org/"
+# SUPPORT_URL="https://www.debian.org/support"
+# BUG_REPORT_URL="https://bugs.debian.org/"
+
+##### DinD (docker In docker) 구현 ::: containerd, docker-ce, docker-ce-cli, docker-compose-plugin, docker-buildx-plugin.deb
+
+# Docker daemon socket to connect to.
+ENV DOCKER_HOST=tcp://127.0.0.1:2375
+
+# containerd.io.deb 다운로드 경로 : containerd.io_1.6.20-1_amd64.deb ( Release Date 2023-03-31 )
+ENV CONTAINERD_DEB_DOWNLOAD_URL=https://download.docker.com/linux/debian/dists/bullseye/pool/stable/amd64/containerd.io_1.6.20-1_amd64.deb
+
+# docker-ce.deb 다운로드 경로 : docker-ce_23.0.2-1~debian.11~bullseye_amd64.deb ( Release Date 2023-03-31 )
+ENV DOCKER_CE_DEB_DOWNLOAD_URL=https://download.docker.com/linux/debian/dists/bullseye/pool/stable/amd64/docker-ce_23.0.2-1~debian.11~bullseye_amd64.deb
+
+# docker-ce-cli.deb 다운로드 경로 : docker-ce-cli_23.0.2-1~debian.11~bullseye_amd64.deb ( Release Date 2023-03-31 )
+ENV DOCKER_CE_CLI_DEB_DOWNLOAD_URL=https://download.docker.com/linux/debian/dists/bullseye/pool/stable/amd64/docker-ce-cli_23.0.2-1~debian.11~bullseye_amd64.deb
+
+# docker-compose-plugin.deb 다운로드 경로 : docker-compose-plugin_2.17.2-1~debian.11~bullseye_amd64.deb ( Release Date 2023-03-31 )
+ENV DOCKER_COMPOSE_PLUGIN_DEB_DOWNLOAD_URL=https://download.docker.com/linux/debian/dists/bullseye/pool/stable/amd64/docker-compose-plugin_2.17.2-1~debian.11~bullseye_amd64.deb
+
+# docker-buildx-plugin.deb 다운로드 경로 : docker-buildx-plugin_0.10.4-1~debian.11~bullseye_amd64.deb ( Release Date 2023-03-31 )
+ENV DOCKER_BUILDX_PLUGIN_DEB_DOWNLOAD_URL=https://download.docker.com/linux/debian/dists/bullseye/pool/stable/amd64/docker-buildx-plugin_0.10.4-1~debian.11~bullseye_amd64.deb
+
+
+########################################################################################
+##### DinD 아닌 DooD (docker Out Of docker) 로 구현시 예제
+
+# Host 의 docker group ID : Host 에서 grep docker /etc/group 로 확인
+# ENV HOST_DOCKER_GROUP_ID='...'
+
+# 명시적으로 docker 그룹 생성 후 jenkins user 추가
+# RUN groupadd -g "${HOST_DOCKER_GROUP_ID}" docker \
+#   && usermod -a -G docker jenkins
+
+# 이후 docker-ce-cli 만 설치 => 설치 버전은 가급적 Host 의 docker 버전과 일치시킬 것
+########################################################################################
+
+##### 실제 Build 에 사용할 OpenJDK 별도 설치 : jenkins/jenkins base image 내 Jenkins 는 OpenJDK 11 로 실행됨
+
+# OpenJDK 8 설치 경로
+ENV OPENJDK_8_INSTALL_PATH=/opt/java/openjdk-8
+
+# OpenJDK 8 다운로드 경로 : OpenJDK8U-jdk_x64_linux_hotspot_8u362b09.tar.gz ( Release Date 2023-01-21 )
+ENV OPENJDK_8_DOWNLOAD_URL=https://github.com/adoptium/temurin8-binaries/releases/download/jdk8u362-b09/OpenJDK8U-jdk_x64_linux_hotspot_8u362b09.tar.gz
+
+# OpenJDK 11 설치 경로
+ENV OPENJDK_11_INSTALL_PATH=/opt/java/openjdk-11
+
+# OpenJDK 11 다운로드 경로 : OpenJDK11U-jdk_x64_linux_hotspot_11.0.18_10.tar.gz ( Release Date 2023-01-20 )
+ENV OPENJDK_11_DOWNLOAD_URL=https://github.com/adoptium/temurin11-binaries/releases/download/jdk-11.0.18%2B10/OpenJDK11U-jdk_x64_linux_hotspot_11.0.18_10.tar.gz
+
+##### Maven 설치
+
+# Maven 설치 경로 : [MAVEN_INSTALL_PATH]/maven-3.8.8 과 같이 설치됨
+ENV MAVEN_INSTALL_PATH=/opt/maven
+
+# Maven 3.8.8 다운로드 경로 : apache-maven-3.8.8-bin.tar.gz ( Release Date 2023-03-08 )
+ENV MAVEN_3_8_8_DOWNLOAD_URL=https://dlcdn.apache.org/maven/maven-3/3.8.8/binaries/apache-maven-3.8.8-bin.tar.gz
+
+##### Gradle 설치
+
+# Gradle 설치 경로 : [GRADLE_INSTALL_PATH]/gradle-7.6.1 과 같이 설치됨
+# gradle-*-bin.zip 을 unzip 으로 압축 해제시 gradle-*/bin, ... 과 같이 해제되므로, 최상위 경로만 지정함
+ENV GRADLE_INSTALL_PATH=/opt/gradle
+
+# Gradle 7.6.1 다운로드 경로 : gradle-7.6.1-bin.zip ( Release Date 2023-02-24 )
+ENV GRADLE_7_6_1_DOWNLOAD_URL=https://services.gradle.org/distributions/gradle-7.6.1-bin.zip
+
+
+ENV DEBIAN_FRONTEND=noninteractive
+USER root
+
+RUN echo "\n[ INFO ]  기존 /etc/apt/sources.list 백업\n" \
+  && cp /etc/apt/sources.list /etc/apt/sources.list.origin \
+  ##############################
+  # APT Repository
+  ##############################
+  && echo "\n[ INFO ]  /etc/apt/sources.list 에 APT Mirror Repo 추가\n" \
+  && echo "\
+deb https://mirror.kakao.com/debian bullseye main \n\
+deb https://ftp.kaist.ac.kr/debian-security bullseye-security main \n\
+deb https://mirror.kakao.com/debian bullseye-updates main \n\
+" > /etc/apt/sources.list \
+  ##############################
+  # APT Install
+  ##############################
+  && echo "\n############ 필수 APT 설치 ##################" \
+  && echo "### iptables, libdevmapper1.02.1 => docker-ce 에서 필요 \n" \
+  && echo "### APT Mirror 호출 중 503 에러 발생시 다시 빌드할 것 !\n" \
+  && apt-get update -y \
+  && apt-get install -y --no-install-recommends \
+     sudo curl wget vim apt-transport-https ca-certificates gnupg2 software-properties-common \
+     zip unzip xz-utils jq netcat \
+     iptables libdevmapper1.02.1 \
+  ##############################
+  # Jenkins
+  ##############################
+  && echo "\n############ Jenkins plugin 설치 ##################\n" \
+  && echo "### 설치 완료시 console 에서 'Done' 출력됨 => JENKINS_UC_DOWNLOAD URL 접속 실패시 다시 빌드할 것 !\n" \
+  && jenkins-plugin-cli \
+    --verbose \
+    --jenkins-version "${JENKINS_VERSIO}" \
+    --plugin-file "${JENKINS_PLUGINS_YAML_PATH}" \
+  ##############################
+  # Docker
+  ##############################
+  && echo "\n############ Docker 관련 deb 다운로드 ##################\n" \
+  && curl -G -k \
+    -o /containerd.io.deb \
+    -L "${CONTAINERD_DEB_DOWNLOAD_URL}" \
+  && curl -G -k \
+    -o /docker-ce.deb \
+    -L "${DOCKER_CE_DEB_DOWNLOAD_URL}" \
+  && curl -G -k \
+    -o /docker-ce-cli.deb \
+    -L "${DOCKER_CE_CLI_DEB_DOWNLOAD_URL}" \
+  && curl -G -k \
+    -o /docker-compose-plugin.deb \
+    -L "${DOCKER_COMPOSE_PLUGIN_DEB_DOWNLOAD_URL}" \
+  && curl -G -k \
+    -o /docker-buildx-plugin.deb \
+    -L "${DOCKER_BUILDX_PLUGIN_DEB_DOWNLOAD_URL}" \
+  && echo "\n############ Docker 관련 deb 설치 ##################\n" \
+  && dpkg -i /containerd.io.deb \
+  && dpkg -i /docker-ce-cli.deb \
+  && dpkg -i /docker-ce.deb \
+  && dpkg -i /docker-compose-plugin.deb \
+  && dpkg -i /docker-buildx-plugin.deb \
+  && rm -f /containerd.io.deb /docker-ce.deb /docker-ce-cli.deb /docker-compose-plugin.deb /docker-buildx-plugin.deb \
+  # Reference: Failure to install and run Docker in WSL Ubuntu 22.04 (works in 20.04): "Cannot connect to the Docker daemon"
+  #            https://github.com/docker/for-linux/issues/1406
+  && echo "\n############ DOcker 와의 호환성 issue 로 'iptables-nft' => 'iptables-legacy' 로 변경 ##################\n" \
+  && update-alternatives --set iptables /usr/sbin/iptables-legacy \
+  ##############################
+  # OpenJDK 8, 11
+  ##############################
+  && echo "\n############ OpenJDK 8 다운로드/설치 ##################\n" \
+  && mkdir -p "${OPENJDK_8_INSTALL_PATH}" \
+  && curl -G -k \
+    -o /openjdk-8.tar.gz \
+    -L "${OPENJDK_8_DOWNLOAD_URL}" \
+  && tar -zxf /openjdk-8.tar.gz \
+    -C "${OPENJDK_8_INSTALL_PATH}" \
+    --strip-components=1 \
+  && rm -f /openjdk-8.tar.gz \
+  && echo "\n############ OpenJDK 11 다운로드/설치 ##################\n" \
+  && mkdir -p "${OPENJDK_11_INSTALL_PATH}" \
+  && curl -G -k \
+    -o /openjdk-11.tar.gz \
+    -L "${OPENJDK_11_DOWNLOAD_URL}" \
+  && tar -zxf /openjdk-11.tar.gz \
+    -C "${OPENJDK_11_INSTALL_PATH}" \
+    --strip-components=1 \
+  && rm -f /openjdk-11.tar.gz \
+  ##############################
+  # Maven, Gradle
+  ##############################
+  && echo "\n############ Maven 다운로드/설치 ##################\n" \
+  && mkdir -p "${MAVEN_INSTALL_PATH}"/maven-3.8.8 \
+  && curl -G -k \
+    -o /maven-3.8.8.tar.gz \
+    -L "${MAVEN_3_8_8_DOWNLOAD_URL}" \
+  && tar -zxf /maven-3.8.8.tar.gz \
+    -C "${MAVEN_INSTALL_PATH}"/maven-3.8.8 \
+    --strip-components=1 \
+  && rm -f /maven-3.8.8.tar.gz \
+  && echo "\n############ Gradle 다운로드/설치 ##################\n" \
+  && mkdir -p "${GRADLE_INSTALL_PATH}" \
+  && curl -G -k \
+    -o /gradle-7.6.1.zip \
+    -L "${GRADLE_7_6_1_DOWNLOAD_URL}" \
+  && sudo unzip /gradle-7.6.1.zip \
+    -d "${GRADLE_INSTALL_PATH}" \
+  && rm -f /gradle-7.6.1.zip \
+  ##############################
+  # User
+  ##############################
+  && echo "\n############ sudo, docker 그룹에 jenkins User 추가 / nopasswd 권한 부여 ##################\n" \
+  && usermod -a -G docker jenkins \
+  && usermod -a -G sudo jenkins \
+  && echo 'jenkins ALL=NOPASSWD: ALL' | tee /etc/sudoers.d/jenkins-nopasswd \
+  ##############################
+  # Dependencies => .m2, .gradle
+  ##############################
+  && echo "\n############ ${JENKINS_DEPENDENCIES_PATH} 하위에 .m2 (Maven), .gradle (Gradle) 경로 명시적 생성 / jenkins:jenkins 로 Permission 변경 ##################" \
+  && echo "# '/jenkins_dependencies/.m2' 경로 : maven 빌드시 사용하는 settings.xml -> <localRepository> 의 값과 일치해야 함 !" \
+  && echo "# '/jenkins_dependencies/.gradle' 경로 : 환경변수 GRADLE_USER_HOME 값과 일치해야 함 !" \
+  && mkdir -p "${JENKINS_DEPENDENCIES_PATH}"/.m2 \
+  && mkdir -p "${JENKINS_DEPENDENCIES_PATH}"/.gradle \
+  && chown -R jenkins:jenkins "${JENKINS_DEPENDENCIES_PATH}" \
+  ##############################
+  # Clean UP
+  ##############################
+  && echo "\n############ Clean Up ##################\n" \
+  && apt-get clean -y \
+  && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+USER jenkins
+EXPOSE 8080
+
+# sudo service docker start : docker 실행
+# /usr/local/bin/jenkins.sh : jenkins 실행
+CMD ["/bin/bash", "-c", "sudo service docker start ; /usr/local/bin/jenkins.sh"]
