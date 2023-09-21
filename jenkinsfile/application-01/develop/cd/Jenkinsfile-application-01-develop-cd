@@ -1,0 +1,27 @@
+/*
+ * [개발] 'maven-app-01' 공통 CD pipeline
+ */
+
+// Global Pipeline Libraries
+@Library(['global-lib']) _
+
+currentBuild.displayName = "[개발] 'maven-app-01' CD - # " + currentBuild.number
+
+def pipelineJobArgs = [
+
+  /*
+   * 대상 Project / Profile / Jenkins Job 실행 관련 정보
+   */
+
+    PROJECT_NAME        : 'maven-app-01'
+  , PROJECT_DESCRIPTION : '[CI/CD Practice] maven-app-01'
+
+  // 해당 App 에 전달할 APP_PROFILE 변수 값
+  , APP_PROFILE : 'dev'
+
+]
+
+/*
+ * 'application-01' 공통 CD pipeline 실행
+ */
+cdApplication01Pipeline(pipelineJobArgs)

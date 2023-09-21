@@ -1,0 +1,44 @@
+/*
+ * [개발] 'maven-app-01' 공통 CI pipeline
+ */
+
+// Global Pipeline Libraries
+@Library(['global-lib']) _
+
+currentBuild.displayName = "[개발] 'maven-app-01' CI - # " + currentBuild.number
+
+def pipelineJobArgs = [
+
+  /*
+   * 대상 Project / Profile / Jenkins Job 실행 관련 정보
+   */
+
+    PROJECT_NAME        : 'maven-app-01'
+  , PROJECT_DESCRIPTION : '[CI/CD Practice] maven-app-01'
+
+  // 해당 App 에 전달할 APP_PROFILE 변수 값
+  , APP_PROFILE : 'dev'
+
+  /*
+   * Maven 빌드 관련 정보
+   */
+
+  // Maven 빌드 후 Artifact (war) 생성 경로
+  , ARTIFACT_FILE_PATH : 'target'
+
+  // Maven 빌드 후 생성되는 Artifact (war) 파일명
+  , ARTIFACT_FILE_NAME : 'maven-app-0.0.1-SNAPSHOT.war'
+
+  /*
+   * CD (배포) Job 정보
+   */
+
+  // 해당 CI Job 에 해당하는 CD Job 경로
+  , CD_JOB_NAME : "${currentBuild.fullProjectName.split('/')[0]}" + '/' + 'application-01-develop-cd'
+
+]
+
+/*
+ * 'application-01' 공통 CI pipeline 실행
+ */
+ciApplication01Pipeline(pipelineJobArgs)
