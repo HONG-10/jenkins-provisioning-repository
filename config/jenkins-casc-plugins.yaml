@@ -1,0 +1,161 @@
+################################################################################################################
+# Jenkins Plugin 설치 목록
+# Version : 2.387.1-lts | Release : 2023-03-08
+################################################################################################################
+
+plugins:
+
+  ##########################################################################
+  ### Jenkins Configuration Plugin
+  ##########################################################################
+
+  ### https://plugins.jenkins.io/configuration-as-code/
+  - artifactId: configuration-as-code
+    source:
+      version: 1625.v27444588cc3d
+
+  ### https://plugins.jenkins.io/job-dsl/
+  - artifactId: job-dsl
+    source:
+      version: 1.83
+
+  ### https://plugins.jenkins.io/role-strategy/
+  - artifactId: role-strategy
+    source:
+      version: 587.588.v850a_20a_30162
+
+  ### https://plugins.jenkins.io/ws-cleanup/
+  - artifactId: ws-cleanup
+    source:
+      version: 0.44
+
+  ### https://plugins.jenkins.io/antisamy-markup-formatter/
+  - artifactId: antisamy-markup-formatter
+    source:
+      version: 159.v25b_c67cd35fb_
+
+  ### https://plugins.jenkins.io/authorize-project/
+  - artifactId: authorize-project
+    source:
+      version: 1.5.1
+
+  ### https://plugins.jenkins.io/permissive-script-security/
+  - artifactId: permissive-script-security
+    source:
+      version: 0.7
+
+  ### https://plugins.jenkins.io/skip-certificate-check/
+  - artifactId: skip-certificate-check
+    source:
+      version: 1.1
+
+  ### https://plugins.jenkins.io/log-parser/
+  - artifactId: log-parser
+    source:
+      version: 2.3.0
+
+  ### https://plugins.jenkins.io/timestamper/
+  - artifactId: timestamper
+    source:
+      version: 1.23
+
+  ##########################################################################
+  ### Jenkins Pipeline Plugin
+  ##########################################################################
+
+  ### https://plugins.jenkins.io/workflow-aggregator/
+  - artifactId: workflow-aggregator
+    source:
+      version: 596.v8c21c963d92d
+
+  ### https://plugins.jenkins.io/pipeline-stage-view/
+  - artifactId: pipeline-stage-view
+    source:
+      version: 2.32
+
+  ### https://plugins.jenkins.io/pipeline-utility-steps/
+  - artifactId: pipeline-utility-steps
+    source:
+      version: 2.15.1
+
+  ### https://plugins.jenkins.io/pipeline-maven/
+  - artifactId: pipeline-maven
+    source:
+      version: 1279.v5d711113020f
+
+  ### https://plugins.jenkins.io/gradle/
+  - artifactId: gradle
+    source:
+      version: 2.3.2
+
+  ### https://plugins.jenkins.io/uno-choice/
+  - artifactId: uno-choice
+    source:
+      version: 2.6.4
+
+  ##########################################################################
+  ### Job 실행 관련 Plugin
+  ##########################################################################
+
+  ### https://plugins.jenkins.io/config-file-provider/
+  - artifactId: config-file-provider
+    source:
+      version: 3.11.1
+
+  ### https://plugins.jenkins.io/parameterized-trigger/
+  - artifactId: parameterized-trigger
+    source:
+      version: 2.45
+
+  ### https://plugins.jenkins.io/parameterized-scheduler/
+  - artifactId: parameterized-scheduler
+    source:
+      version: 1.2
+
+  ### https://plugins.jenkins.io/build-token-root/
+  - artifactId: build-token-root
+    source:
+      version: 151.va_e52fe3215fc
+
+  ### https://plugins.jenkins.io/build-timeout/
+  - artifactId: build-timeout
+    source:
+      version: 1.28
+
+  ##########################################################################
+  ### SCM (Source Code Management) Plugin
+  ##########################################################################
+
+  ### https://plugins.jenkins.io/git/
+  - artifactId: git
+    source:
+      version: 5.0.0
+
+  ### https://plugins.jenkins.io/generic-webhook-trigger/
+  - artifactId: generic-webhook-trigger
+    source:
+      version: 1.86.2
+
+  ##########################################################################
+  ### 배포 관련 Plugin
+  ##########################################################################
+
+  ### https://plugins.jenkins.io/ssh-steps/
+  - artifactId: ssh-steps
+    source:
+      version: 2.0.65.vd26b_5b_9b_de4d
+
+  ##########################################################################
+  ### CI/CD 관련 Application 연동 Plugin
+  ##########################################################################
+
+  ### https://plugins.jenkins.io/sonar/
+  # SonarQube Scanner
+  - artifactId: sonar
+    source:
+      version: 2.15
+
+  ### https://plugins.jenkins.io/slack/
+  - artifactId: slack
+    source:
+      version: 631.v40deea_40323b

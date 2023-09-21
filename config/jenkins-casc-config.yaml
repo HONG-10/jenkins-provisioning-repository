@@ -1,0 +1,504 @@
+########################################################################################
+# Jenkins CasC ( Configuration as Code ) 설정
+# Version : 2.387.1-lts | Release : 2023-03-08
+#
+# [Reference]
+# - Passing secrets through variables
+#   https://github.com/jenkinsci/configuration-as-code-plugin/blob/master/docs/features/secrets.adoc
+########################################################################################
+
+##########################################################################
+# jenkins
+##########################################################################
+jenkins:
+  systemMessage: |
+    <h1>Jenkins CI/CD 서버</h1>
+
+  globalNodeProperties:
+  - envVars:
+      env:
+      # Nexus 서버 URL : Nexus 연동시 사용
+      - key: "NEXUS_URL"
+        value: "http://nexus.cicd-practice.com"
+
+      ##################################################
+      # DevOps Repository 관련 환경변수
+      ##################################################
+      # DevOps Repository URL
+      - key: "DEVOPS_REPOSITORY_URL"
+        value: "https://bitbucket.org/reverse-2022-vcs/devops-repository.git"
+      # DevOps Repository 내 각 Jenkinsfile, K8S 연동 manifest 등이 위치한 branch
+      - key: "DEVOPS_REPOSITORY_TARGET_BRANCH_NAME"
+        value: "refs/heads/main"
+      # DevOps Repository 의 Git Clone 시 별도 지정할 디렉토리명 : (해당 Job 작업 경로)/(디렉토리명) 경로에 clone 됨
+      - key: "DEVOPS_REPOSITORY_CLONE_DIRECTORY_NAME"
+        value: "devops-repo"
+      # 해당 Jenkins 서버에서 manifest 수정 후 DevOps Repository 로 commit / push 시 지정할 user.name : git config 로 지정함
+      - key: "DEVOPS_REPOSITORY_USER_NAME"
+        value: "jenkins-01"
+      # 해당 Jenkins 서버에서 manifest 수정 후 DevOps Repository 로 commit / push 시 지정할 user.email : git config 로 지정함
+      - key: "DEVOPS_REPOSITORY_USER_EMAIL"
+        value: "jenkins-01@example.com"
+
+  securityRealm:
+    local:
+      allowsSignup: false
+      enableCaptcha: false
+      users:
+      - id: "jenkins-admin"
+        name: "[CI/CD Practice] Jenkins 관리자"
+        password: "${JENKINS_ADMIN_PASSWORD:-admin123}"
+
+      - id: "jenkins-cicd"
+        name: "[CI/CD Practice] CI/CD pipeline 관리자"
+        password: "${JENKINS_USER_CICD_PASSWORD:-cicd123}"
+
+      - id: "jenkins-schd"
+        name: "[CI/CD Practice] Schedule pipeline 실행 전용 계정"
+        password: "${JENKINS_USER_SCHEDULE_PASSWORD:-schd123}"
+
+      - id: "jenkins-comm"
+        name: "[CI/CD Practice] 공통/개발/스테이징 pipeline 실행 전용 계정"
+        password: "${JENKINS_USER_COMM_PASSWORD:-comm123}"
+
+      - id: "jenkins-dev"
+        name: "[CI/CD Practice] 개발/스테이징 pipeline 실행 전용 계정"
+        password: "${JENKINS_USER_DEV_PASSWORD:-dev123}"
+
+      - id: "jenkins-prod"
+        name: "[CI/CD Practice] 운영 pipeline 실행 전용 계정"
+        password: "${JENKINS_USER_PROD_PASSWORD:-prod123}"
+
+      - id: "jenkins-read"
+        name: "[CI/CD Practice] Jenkins 조회 전용 계정"
+        password: "${JENKINS_USER_READ_ONLY_PASSWORD:-read123}"
+
+  ##### 'Role-based Authorization Strategy' PlugIn 기반 Role 구성
+  authorizationStrategy:
+    roleBased:
+      roles:
+        global:
+        - name: "jenkins-global-role-admin"
+          description: "[CI/CD Practice] Jenkins 관리자 Global Role"
+          permissions:
+          - "Overall/Administer"
+          assignments:
+          - "jenkins-admin"
+
+        - name: "jenkins-global-role-cicd"
+          description: "[CI/CD Practice] CI/CD pipeline 관리자 Global Role"
+          permissions:
+          - "Overall/Read"
+          assignments:
+          - "jenkins-cicd"
+
+        - name: "jenkins-global-role-schedule"
+          description: "[CI/CD Practice] 정기 실행 schedule pipeline 실행 Global Role"
+          permissions:
+          - "Overall/Read"
+          assignments:
+          - "jenkins-schd"
+
+        - name: "jenkins-global-role-common-develop-staging"
+          description: "[CI/CD Practice] Jenkins 공통/개발/스테이징 pipeline 실행 Global Role"
+          permissions:
+          - "Overall/Read"
+          assignments:
+          - "jenkins-comm"
+
+        - name: "jenkins-global-role-develop-staging"
+          description: "[CI/CD Practice] Jenkins 개발/스테이징 pipeline 실행 Global Role"
+          permissions:
+          - "Overall/Read"
+          assignments:
+          - "jenkins-dev"
+
+        - name: "jenkins-global-role-production"
+          description: "[CI/CD Practice] Jenkins 운영 pipeline 실행 Global Role"
+          permissions:
+          - "Overall/Read"
+          assignments:
+          - "jenkins-prod"
+
+        - name: "jenkins-global-role-read-only"
+          description: "[CI/CD Practice] Jenkins 조회 전용 Global Role"
+          permissions:
+          - "Overall/Read"
+          assignments:
+          - "jenkins-read"
+
+        items:
+        - name: "jenkins-item-role-cicd"
+          description: "[CI/CD Practice] CI/CD pipeline 구성 Item Role"
+          pattern: "jenkins-pipeline-(.*)($|/.*)"
+          permissions:
+          ### CI/CD pipeline 구성에 필요한 모든 item role 적용
+          # Credentials
+          - "Credentials/Create"
+          - "Credentials/Delete"
+          - "Credentials/ManageDomains"
+          - "Credentials/Update"
+          - "Credentials/View"
+          # Job
+          - "Job/Build"
+          - "Job/Cancel"
+          - "Job/Configure"
+          - "Job/Create"
+          - "Job/Delete"
+          - "Job/Discover"
+          - "Job/Move"
+          - "Job/Read"
+          - "Job/Workspace"
+          # Run
+          - "Run/Delete"
+          - "Run/Replay"
+          - "Run/Update"
+          # View
+          - "View/Configure"
+          - "View/Create"
+          - "View/Delete"
+          - "View/Read"
+          # SCM
+          - "SCM/Tag"
+          assignments:
+          - "jenkins-cicd"
+
+        - name: "jenkins-item-role-schedule"
+          description: "[CI/CD Practice] 정기 실행 schedule pipeline 실행 Item Role"
+          pattern: "jenkins-pipeline-schedule($|/.*)"
+          permissions:
+          # Job
+          - "Job/Build"
+          - "Job/Cancel"
+          - "Job/Read"
+          - "Job/Workspace"
+          # Run
+          - "Run/Delete"
+          - "Run/Replay"
+          - "Run/Update"
+          # SCM
+          - "SCM/Tag"
+          assignments:
+          - "jenkins-schd"
+
+        - name: "jenkins-item-role-common-develop-staging"
+          description: "[CI/CD Practice] 공통/개발/스테이징 pipeline 실행 Item Role"
+          pattern: "jenkins-pipeline-common($|/.*)|jenkins-pipeline-develop($|/.*)|jenkins-pipeline-staging($|/.*)"
+          permissions:
+          # Job
+          - "Job/Build"
+          - "Job/Cancel"
+          - "Job/Read"
+          - "Job/Workspace"
+          # Run
+          - "Run/Delete"
+          - "Run/Replay"
+          - "Run/Update"
+          # SCM
+          - "SCM/Tag"
+          assignments:
+          - "jenkins-comm"
+
+        - name: "jenkins-item-role-develop-staging"
+          description: "[CI/CD Practice] 개발/스테이징 pipeline 실행 Item Role"
+          pattern: "jenkins-pipeline-develop($|/.*)|jenkins-pipeline-staging($|/.*)"
+          permissions:
+          # Job
+          - "Job/Build"
+          - "Job/Cancel"
+          - "Job/Read"
+          - "Job/Workspace"
+          # Run
+          - "Run/Delete"
+          - "Run/Replay"
+          - "Run/Update"
+          # SCM
+          - "SCM/Tag"
+          assignments:
+          - "jenkins-dev"
+
+        - name: "jenkins-item-role-production"
+          description: "[CI/CD Practice] 운영 pipeline 실행 Item Role"
+          pattern: "jenkins-pipeline-production($|/.*)"
+          permissions:
+          # Job
+          - "Job/Build"
+          - "Job/Cancel"
+          - "Job/Read"
+          - "Job/Workspace"
+          # Run
+          - "Run/Delete"
+          - "Run/Replay"
+          - "Run/Update"
+          # SCM
+          - "SCM/Tag"
+          assignments:
+          - "jenkins-prod"
+
+        - name: "jenkins-role-read-only-item"
+          description: "[CI/CD Practice] Jenkins 조회 전용 Item Role"
+          pattern: "jenkins-pipeline-schedule($|/.*)|jenkins-pipeline-common($|/.*)|jenkins-pipeline-develop($|/.*)|jenkins-pipeline-staging($|/.*)"
+          permissions:
+          - "Job/Read"
+          assignments:
+          - "jenkins-read"
+
+  ##### 'Role-based Authorization Strategy' Plugin 미사용시 : allowAnonymousRead false 지정하여 항상 로그인 유도
+  # authorizationStrategy:
+  #   loggedInUsersCanDoAnything:
+  #     allowAnonymousRead: false
+
+  ##### job dsl 관련 기능 사용시 "standard" 로 항상 지정 필요
+  projectNamingStrategy: "standard"
+
+  ##### 'roleBased > forceExistingJobs' 옵션 지정시 : true/false 값에 상관없이 CASC yaml 내 job dsl 항목이 실행되지 않음 !
+  #   roleBased:
+  #     forceExistingJobs: true
+
+  disabledAdministrativeMonitors:
+  - "hudson.model.UpdateCenter$CoreUpdateMonitor"
+  - "jenkins.security.UpdateSiteWarningsMonitor"
+  - "jenkins.security.csrf.CSRFAdministrativeMonitor"
+  - "jenkins.diagnostics.ControllerExecutorsNoAgents"
+  - "org.jenkinsci.plugins.rolestrategy.NamingStrategyAdministrativeMonitor"
+  disableRememberMe: false
+  noUsageStatistics: true
+  # 프로세스 executor 개수 설정
+  numExecutors: 10
+
+  ##### Jenkins 2.387.1 LTS : 해당 버전에 해당하는 update-center.json 지정
+  # jenkins 최신 버전 Up 시 최신 버전에 해당하는 update-center.json 이 당장 지원되지 않을 수 있음
+  # 폐쇄망 환경인 경우 접속이 안되므로 Reference 성격으로 사용해야 함
+  updateCenter:
+    sites:
+    - id: "default"
+      url: "https://ftp.yz.yamagata-u.ac.jp/pub/misc/jenkins/updates/dynamic-stable-2.387.1/update-center.json"
+
+  # OWASP Markup Formatter Plugin 적용 : safe html 활성화
+  markupFormatter:
+    rawHtml:
+      disableSyntaxHighlighting: false
+
+  ### j.s.s2m.AdminWhitelistRule#setMasterKillSwitch: Setting AdminWhitelistRule no longer has any effect.
+  ### See https://www.jenkins.io/redirect/AdminWhitelistRule to learn more.
+  # remotingSecurity:
+  #   enabled: true
+
+##########################################################################
+# credentials
+##########################################################################
+credentials:
+  system:
+    domainCredentials:
+    - credentials:
+      ##################################################
+      # [CI/CD Practice] Nexus 연동 credentials
+      ##################################################
+      - usernamePassword:
+          id: "nexus-maven-mirror-credentials"
+          description: "[CI/CD Practice] Nexus Maven Read Only"
+          username: "nexus-read"
+          password: "${NEXUS_USER_READ_ONLY_PASSWORD:-read123}"
+          scope: GLOBAL
+
+      - usernamePassword:
+          id: "nexus-upload-credentials"
+          description: "[CI/CD Practice] Nexus 업로드 계정"
+          username: "nexus-upload"
+          password: "${NEXUS_USER_UPLOAD_PASSWORD:-upload123}"
+          scope: GLOBAL
+
+      ##################################################
+      # SCM 연동 credentials
+      ##################################################
+      # DevOps Repository 연동 Jenkins credentials
+      - usernamePassword:
+          id: "devops-repository-git-credentials"
+          description: "[CI/CD Practice] DevOps 리포지터리 CI/CD 전용 계정"
+          username: "reverse-2022"
+          password: "ATBBTNcdAZ9Yb7REPD8p5hQS5EGfB3B4D6B9"
+          scope: GLOBAL
+
+      # 각 Source Repository 연동 Jenkins credentials
+      - usernamePassword:
+          id: "maven-app-01-repository-git-credentials"
+          description: "[CI/CD Practice] 'maven-app-01' Repository 연동 비트버킷 계정"
+          username: "reverse-2022"
+          password: "ATBBTNcdAZ9Yb7REPD8p5hQS5EGfB3B4D6B9"
+          scope: GLOBAL
+
+      ##################################################
+      # 개발/스테이징, 또는 운영 환경에 SSH 접속 위한 Private Key
+      ##################################################
+      - basicSSHUserPrivateKey:
+          id: "cicd-ssh-credentials-develop-staging"
+          description: "[CI/CD Practice] 개발/스테이징 환경 전용 SSH credentials"
+          username: "tomcat-user"
+          passphrase: ""
+          privateKeySource:
+            directEntry:
+              privateKey: "${readFile:${JENKINS_SSH_CREDENTIALS_PATH}/cicd-ssh-credentials-develop-staging.pem}"
+          scope: GLOBAL
+      - basicSSHUserPrivateKey:
+          id: "cicd-ssh-credentials-production"
+          description: "[CI/CD Practice] 운영 환경 전용 SSH credentials"
+          username: "tomcat-user"
+          passphrase: ""
+          privateKeySource:
+            directEntry:
+              privateKey: "${readFile:${JENKINS_SSH_CREDENTIALS_PATH}/cicd-ssh-credentials-production.pem}"
+          scope: GLOBAL
+
+##########################################################################
+# tools
+##########################################################################
+tool:
+  # 각 설치경로는 Jenkins Dockerfile 참조
+  jdk:
+    installations:
+    - name: "openjdk-8"
+      home: "/opt/java/openjdk-8"
+    - name: "openjdk-11"
+      home: "/opt/java/openjdk-11"
+  maven:
+    installations:
+    - name: maven-3.8.8
+      home: "/opt/maven/maven-3.8.8"
+  gradle:
+    installations:
+    - name: gradle-7.6.1
+      home: "/opt/gradle/gradle-7.6.1"
+  mavenGlobalConfig:
+    globalSettingsProvider:
+      mvn:
+        settingsConfigId: "global-maven-settings-xml"
+    settingsProvider: "standard"
+  git:
+    installations:
+    - home: "git"
+      name: "Default"
+
+##########################################################################
+# unclassified
+##########################################################################
+unclassified:
+  location:
+    # Jenkins URL
+    url: "https://jenkins.cicd-practice.com"
+    # 관리자 이메일은 Jenkins 설치 후 별도 세팅
+    adminAddress: "관리자 이메일 세팅 필요 <admin@example.com>"
+  # Global Pipeline Libraries
+  globalLibraries:
+    libraries:
+    - defaultVersion: "main"
+      name: "global-lib"
+      retriever:
+        modernSCM:
+          libraryPath: "global-lib/"
+          scm:
+            git:
+              id: "jenkins-global-lib"
+              credentialsId: "devops-repository-git-credentials"
+              remote: "https://bitbucket.org/reverse-2022-vcs/devops-repository.git"
+              traits:
+              - "gitBranchDiscovery"
+              - cloneOption:
+                  extension:
+                    noTags: true
+                    shallow: true
+              - sparseCheckoutPaths:
+                  extension:
+                    sparseCheckoutPaths:
+                    - path: "global-lib/"
+              - "wipeWorkspaceTrait"
+  globalConfigFiles:
+    configs:
+    - globalMavenSettings:
+        id: "global-maven-settings-xml"
+        name: "[maven] 전역 settings.xml 설정"
+        comment: "[maven] 전역 settings.xml 설정"
+        isReplaceAll: true
+        serverCredentialMappings:
+        - credentialsId: "nexus-maven-mirror-credentials"
+          serverId: "nexus-maven-mirror"
+        content: |
+          <?xml version="1.0" encoding="UTF-8"?>
+
+          <settings
+              xmlns="http://maven.apache.org/SETTINGS/1.0.0"
+              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 http://maven.apache.org/xsd/settings-1.0.0.xsd">
+
+            <localRepository>${JENKINS_M2_PATH:-/jenkins_dependencies/.m2}</localRepository>
+
+            <mirrors>
+              <mirror>
+                <id>nexus-maven-mirror</id>
+                <mirrorOf>*</mirrorOf>
+                <name>nexus-maven-mirror</name>
+                <!-- <url>${NEXUS_MAVEN_MIRROR_URL:-http://nexus.cicd-practice.com/repository/maven-public/}</url> -->
+                <!-- Nexus 를 사용하지 않는 경우, 다음과 같이 설정합니다. -->
+                <url>https://repo1.maven.org/maven2/</url>
+              </mirror>
+            </mirrors>
+
+            <servers>
+              <!-- Jenkins credentials 로 대체
+              <server>
+                <id>nexus-maven-mirror</id>
+                <username></username>
+                <password></password>
+              </server>
+            -->
+            </servers>
+
+            <proxies>
+            <!-- 필요시 활성화
+            <proxy>
+                <id>maven-proxy</id>
+                <active>true</active>
+                <protocol>http</protocol>
+                <host>121.50.30.47</host>
+                <port>8888</port>
+                <nonProxyHosts>nexus|10.152.*|121.50.*|localhost|127.0.0.1</nonProxyHosts>
+              </proxy>
+            -->
+            </proxies>
+
+          </settings>
+        providerId: "org.jenkinsci.plugins.configfiles.maven.GlobalMavenSettingsConfig"
+
+##########################################################################
+# security
+##########################################################################
+security:
+  gitHostKeyVerificationConfiguration:
+    sshHostKeyVerificationStrategy: "knownHostsFileVerificationStrategy"
+  globalJobDslSecurityConfiguration:
+    useScriptSecurity: true
+  queueItemAuthenticator:
+    authenticators:
+    - global:
+        strategy: "systemAuthorizationStrategy"   # "triggeringUsersAuthorizationStrategy"
+  sSHD:
+    port: -1
+
+##########################################################################
+# jobs
+##########################################################################
+jobs:
+# providedEnv : JOB DSL groovy 내에서 사용할 환경변수들을 별도 지정
+# => Jenkins credentials ID 값을 우선 지정
+- providedEnv:
+    JOB_DSL_UTIL_PATH: "${JENKINS_JOB_DSL_GROOVY_FILE_PATH}/util/job-dsl-util.groovy"
+    DEVOPS_REPOSITORY_GIT_CREDENTIALS_ID: 'devops-repository-git-credentials'
+    DEVOPS_REPOSITORY_URL: 'https://bitbucket.org/reverse-2022-vcs/devops-repository.git'
+    JENKINSFILE_ROOT_PATH: 'jenkinsfile'
+    DEVOPS_REPOSITORY_TARGET_BRANCH_NAME: 'refs/heads/main'
+- file: "${JENKINS_JOB_DSL_GROOVY_FILE_PATH}/job-dsl-schedule.groovy"     # [CI/CD Practice] 정기 실행 schedule Job
+- file: "${JENKINS_JOB_DSL_GROOVY_FILE_PATH}/job-dsl-common.groovy"       # [CI/CD Practice] 공통 pipeline
+- file: "${JENKINS_JOB_DSL_GROOVY_FILE_PATH}/job-dsl-base-image.groovy"   # [CI/CD Practice] Base Image CI
+- file: "${JENKINS_JOB_DSL_GROOVY_FILE_PATH}/job-dsl-develop.groovy"      # [CI/CD Practice] 개발 CI/CD
+- file: "${JENKINS_JOB_DSL_GROOVY_FILE_PATH}/job-dsl-staging.groovy"      # [CI/CD Practice] 스테이징 CI/CD
+- file: "${JENKINS_JOB_DSL_GROOVY_FILE_PATH}/job-dsl-production.groovy"   # [CI/CD Practice] 운영 CI/CD
+- file: "${JENKINS_JOB_DSL_GROOVY_FILE_PATH}/job-dsl-test.groovy"         # [CI/CD Practice] 테스트 pipeline
