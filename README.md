@@ -1,9 +1,9 @@
 # Jenkins 젠킨스
 
-[공식 홈페이지](https://www.jenkins.io/)
-[공식 플러그인](https://plugins.jenkins.io/)
-[공식 다운로드](https://pkg.jenkins.io/debian-stable/direct/)
-[일본 Mirror 다운로드](https://mirror.esuni.jp/)
+- [공식 홈페이지](https://www.jenkins.io/)
+- [공식 플러그인](https://plugins.jenkins.io/)
+- [공식 다운로드](https://pkg.jenkins.io/debian-stable/direct/)
+- [일본 Mirror 다운로드](https://mirror.esuni.jp/)
 
 ## 설치
 
